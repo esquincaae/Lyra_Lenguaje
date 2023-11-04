@@ -7,6 +7,7 @@ class AnalizadorSintactico:
         self.entrada = entrada.strip()
         self.indice = 0
         self.error = None
+        self.variables_declaradas = set()  # Conjunto para llevar registro de las variables declaradas
 
         # Gramática con expresiones regulares para cada tipo de variable
         self.gramatica = {
@@ -36,7 +37,7 @@ class AnalizadorSintactico:
         return None
 
     def expect(self, token):
-        matched = self.match(self.gramatica[token])
+        matched = self.match(self.gramatica[token] if token in self.gramatica else token)
         if not matched:
             self.error = f"Se esperaba '{token}'"
             return False
@@ -53,6 +54,10 @@ class AnalizadorSintactico:
                 if not var_name:
                     self.error = "Nombre de variable inválido"
                     return False
+                if var_name in self.variables_declaradas:
+                    self.error = f"La variable '{var_name}' ya ha sido declarada."
+                    return False
+                self.variables_declaradas.add(var_name)
                 if not self.expect('I'):
                     return False
                 valor = self.match(self.gramatica['T'][self.tipo_actual])
