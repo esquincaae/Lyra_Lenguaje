@@ -1,0 +1,13 @@
+var ent contador = 0;
+
+func incrementar(contador) {
+  contador = contador + 1;
+}
+
+func cuerpo() {
+contenido
+}
+
+Para (var ent i = 0; i < 10; i++) {
+contenido
+}
