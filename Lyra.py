@@ -39,7 +39,8 @@ class AnalizadorSintactico:
             'CONDICION': r'[a-zA-Z_]\w*\s*(==|!=|>=|<=|>|<)\s*\d+',
             'SI': r'si',
             'SINO': r'sino',
-            'IMPRIMIR_LLAMADA': r'imprimir\s*\(\s*".*?"\s*\)\s*;'
+            'IMPRIMIR_LLAMADA': r'imprimir\s*\(\s*".*?"\s*\)\s*;',
+            'ARGUMENTOS_IMPRIMIR': r'((\s*".*?"\s*|\s*[a-zA-Z_]\w*\s*)(,\s*".*?"\s*|\s*,\s*[a-zA-Z_]\w*\s*)*)',
         })
         self.tipos_de_datos = {
             'ent': r'^\d+$',
@@ -68,22 +69,30 @@ class AnalizadorSintactico:
         if not self.expect(r'\('):
             self.error = "Se esperaba '(' después de 'imprimir'"
             return False
-        # Asegúrate de que la cadena esté bien formada
-        cadena_imprimir = self.match(r'".*?"|\'.*?\'')
-        if not cadena_imprimir:
-            self.error = "Se esperaba una cadena entre comillas para 'imprimir'"
-            return False
-        # Verifica si la cadena está cerrada correctamente
-        if cadena_imprimir.count('"') % 2 != 0 or cadena_imprimir.count("'") % 2 != 0:
-            self.error = "La cadena de 'imprimir' no está cerrada correctamente"
-            return False
-        if not self.expect(r'\)'):
-            self.error = "Se esperaba ')' después de la cadena de 'imprimir'"
-            return False
+
+        # Obtiene todo hasta el cierre de paréntesis
+        argumentos_str = self.entrada[self.indice:].split(')')[0]  
+        # Divide por coma y quita espacios
+        argumentos = [arg.strip() for arg in argumentos_str.split(',')]  
+
+        for argumento in argumentos:
+            # Si no es una cadena
+            if not re.match(r'^".*"$', argumento):  
+                # Si no es una variable declarada
+                if argumento not in self.nombres_declarados:  
+                    self.error = f"La variable '{argumento}' no ha sido declarada."
+                    return False
+
+        # Avanza el índice para saltar los argumentos y el cierre de paréntesis
+        self.indice += len(argumentos_str) + 1  
+
         if not self.expect(';'):
             self.error = "Se esperaba ';' al final de la instrucción de 'imprimir'"
             return False
+
         return True
+
+
 
     def expect(self, token_or_pattern):
         # Intentar obtener el patrón del diccionario de gramática usando token_or_pattern como clave
@@ -98,6 +107,7 @@ class AnalizadorSintactico:
         self.error = f"Se esperaba '{token_or_pattern}'"
         return False
 
+    
 
     def analizar_ciclo(self):
             if self.match(self.gramatica['SC']):
