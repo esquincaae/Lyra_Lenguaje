@@ -8,13 +8,20 @@ class AnalizadorSintactico:
         self.indice = 0
         self.error = None
         self.nombres_declarados = set()
+        self.tipos_de_datos = {
+            'ent': r'^\d+$',
+            'flot': r'^\d+\.\d+$',
+            'booleano': r'^(true|false)$',
+            'cadena': r'^".*"$',
+            'caracter': r"^'.'$",
+        }
 
         self.gramatica = {
             'var': r'var',
             'func': r'func',
             'T': r'(ent|flot|booleano|cadena|caracter)',
-            'NV': r'[a-z][a-zA-Z]*',
-            'VL': r'(\d+|\d+\.\d+|true|false|".*?"|\'.?\')',
+            'NV': r'[a-zA-Z][a-zA-Z0-9]*',  # Nombres de variables o funciones
+            'VL': r'(\d+|\d+\.\d+|true|false|".*?"|\'.?\')',  # Valores literales
             'PC': r';',
             'I': r'=',
             'C': r',',
@@ -25,8 +32,8 @@ class AnalizadorSintactico:
             'RE': r'regresa',
             'OP': r'[\+\-\*/]',
             'EXP': r'[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;',
-            'VRS': r'([a-z][a-zA-Z]*\s*(,\s*[a-z][a-zA-Z]*)*)?',
-            'NF': r'[a-z][a-zA-Z]*',
+            'VRS': r'([a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?',
+            'NF': r'[a-zA-Z_]\w*',
             'ARGS': r'(\s*[a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?',
             'BODY': r'(\s*[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;)+',
             'FUNC': r'func\s+[a-zA-Z_]\w*\s*\(\s*([a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?\)\s*\{[^\}]*\}',
@@ -72,25 +79,14 @@ class AnalizadorSintactico:
                         return False
                     self.nombres_declarados.add(var_name)
                     if self.expect('='):
-                        # Verificación de tipo correspondiente al valor asignado
                         valor = self.match(self.gramatica['VL'])
                         if valor:
-                            if tipo == 'ent' and not re.match(r'^\d+$', valor):
-                                self.error = f"Tipo de dato incorrecto para ent: {valor}"
+                            patron = self.tipos_de_datos[tipo]
+                            if re.match(patron, valor):
+                                return self.expect(';')
+                            else:
+                                self.error = f"Tipo de dato incorrecto para {tipo}: {valor}"
                                 return False
-                            elif tipo == 'flot' and not re.match(r'^\d+\.\d+$', valor):
-                                self.error = f"Tipo de dato incorrecto para flot: {valor}"
-                                return False
-                            elif tipo == 'booleano' and valor not in ['true', 'false']:
-                                self.error = f"Tipo de dato incorrecto para booleano: {valor}"
-                                return False
-                            elif tipo == 'cadena' and not re.match(r'^".*"$', valor):
-                                self.error = f"Tipo de dato incorrecto para cadena: {valor}"
-                                return False
-                            elif tipo == 'caracter' and not re.match(r"^'.?'$", valor):
-                                self.error = f"Tipo de dato incorrecto para caracter: {valor}"
-                                return False
-                            return self.expect(';')
         return False
 
     # Método para realizar el análisis completo
