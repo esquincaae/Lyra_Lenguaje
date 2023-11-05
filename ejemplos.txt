@@ -5,15 +5,16 @@ func incrementar(contador) {
 }
 
 func cuerpo() {
-contenido
+  contenido
 }
 
 Para (var ent i = 0; i < 10; i++) {
-contenido
+  contenido
 }
 
 si(numero>5){
-imprimir("a");
-}sino{
-impimir("b");
+  imprimir("a");
+}
+sino{
+  imprimir("b");
 }
