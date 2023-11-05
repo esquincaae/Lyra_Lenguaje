@@ -7,28 +7,20 @@ class AnalizadorSintactico:
         self.entrada = entrada.strip()
         self.indice = 0
         self.error = None
-        self.nombres_declarados = set()
-        self.tipos_de_datos = {
-            'ent': r'^\d+$',
-            'flot': r'^\d+\.\d+$',
-            'booleano': r'^(true|false)$',
-            'cadena': r'^".*"$',
-            'caracter': r"^'.'$",
-        }
-
+        self.nombres_declarados = set()  # Para evitar nombres duplicados
         self.gramatica = {
-            'var': r'var',
-            'func': r'func',
+            'LM': r'[a-z]',
+            'L': r'[a-zA-Z]',
+            'N': r'\d+',
             'T': r'(ent|flot|booleano|cadena|caracter)',
-            'NV': r'[a-zA-Z][a-zA-Z0-9]*',  # Nombres de variables o funciones
-            'VL': r'(\d+|\d+\.\d+|true|false|".*?"|\'.?\')',  # Valores literales
+            'NV': r'[a-z][a-zA-Z]*\d*',
             'PC': r';',
             'I': r'=',
-            'C': r',',
             'LA': r'\{',
             'LC': r'\}',
             'AV': r'\(',
             'CV': r'\)',
+            'SC': r'Para',
             'RE': r'regresa',
             'OP': r'[\+\-\*/]',
             'EXP': r'[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;',
@@ -82,15 +74,54 @@ class AnalizadorSintactico:
             return False
         return True
 
-    def expect(self, pattern):
-        matched = self.match(pattern)
-        if not matched:
-            self.error = f"Se esperaba el patrón {pattern}"
-            return False
+def expect(self, token_or_pattern):
+    # Intentar obtener el patrón del diccionario de gramática usando token_or_pattern como clave
+    pattern = self.gramatica.get(token_or_pattern, token_or_pattern)
+    self.consumir_espacios()
+    # Intentar hacer match con el patrón
+    match_obj = re.match(pattern, self.entrada[self.indice:])
+    if match_obj:
+        self.indice += match_obj.end()
         return True
+    # Si el match falla, configurar el mensaje de error
+    self.error = f"Se esperaba '{token_or_pattern}'"
+    return False
 
-    # Método para manejar la declaración de una función
-    def SF(self):
+
+def analizar_ciclo(self):
+        if self.match(self.gramatica['SC']):
+            if self.expect('AV'):
+                # Analizar inicialización de variable dentro del ciclo
+                if self.expect('var'):
+                    tipo = self.match(self.gramatica['T'])
+                    if tipo and self.match(self.gramatica['NV']):
+                        if self.expect('I') and self.match(self.gramatica['N']) and self.expect('PC'):
+                            # Analizar condición del ciclo
+                            if self.match(self.gramatica['NV']) and self.match(self.gramatica['O']) and self.match(self.gramatica['N']) and self.expect('PC'):
+                                # Analizar actualización de la variable del ciclo
+                                if self.match(self.gramatica['NV']) and self.match(self.gramatica['AD']):
+                                    if self.expect('CV'):
+                                        # Asegurar que el cuerpo del ciclo esté presente
+                                        if self.expect('LA') and self.match(self.gramatica['CN']) and self.expect('LC'):
+                                            return True
+                                        else:
+                                            self.error = "Error en el cuerpo del ciclo."
+                                    else:
+                                        self.error = "Se esperaba ')'"
+                                else:
+                                    self.error = "Error en la actualización del ciclo."
+                            else:
+                                self.error = "Error en la condición del ciclo."
+                        else:
+                            self.error = "Error en la inicialización del ciclo."
+                else:
+                    self.error = "Se esperaba la palabra clave 'var' después de 'Para'"
+            else:
+                self.error = "Se esperaba '(' después de 'Para'"
+        return False
+
+# Método para manejar la declaración de una función
+def SF(self):
         # Verifica si hay una definición de función y procesa si la hay
         func_match = self.match(self.gramatica['FUNC'])
         if func_match:
@@ -121,7 +152,7 @@ class AnalizadorSintactico:
         return False
 
     # Método para manejar la declaración de una variable
-    def SV(self):
+def SV(self):
         if self.expect('var'):
             tipo = self.match(self.gramatica['T'])
             if tipo:
@@ -142,7 +173,7 @@ class AnalizadorSintactico:
                                 return False
         return False
 
-    def SSCO(self):
+def SSCO(self):
         if self.match(self.gramatica['SI']):
             if not self.expect(r'\('):
                 self.error = "Se esperaba '(' después de 'si'"
@@ -188,8 +219,9 @@ class AnalizadorSintactico:
 
 
 
-    def analizar(self):
-        while self.indice < len(self.entrada):
+def analizar(self):
+        # Aquí se inicia el análisis de la cadena
+        while self.indice < len(self.entrada) and not self.error:
             self.consumir_espacios()
             if self.entrada[self.indice:].startswith('var '):
                 if not self.SV():
@@ -200,27 +232,30 @@ class AnalizadorSintactico:
             elif self.entrada[self.indice:].startswith(self.gramatica['SI']):
                 if not self.SSCO():
                     return False
+            elif self.entrada[self.indice:].startswith(self.gramatica['SC']):
+                if not self.analizar_ciclo():
+                    return False
             else:
                 if self.error:
                     return False
-                self.error = "Se esperaba una declaración de variable, definición de función o un condicional 'si'"
+                self.error = "Se esperaba una declaración de variable, definición de función, un condicional 'si' o un ciclo con 'Para'"
                 return False
             self.consumir_espacios()
-        return True
+        return not self.error
 
 # Función que se llama cuando se presiona el botón de la GUI
 def evaluar_cadena():
     cadena = entrada_texto.get("1.0", "end-1c")
     analizador = AnalizadorSintactico(cadena)
     if analizador.analizar():
-        messagebox.showinfo("Resultado del análisis", 'La cadena es válida.')
+        messagebox.showinfo("Resultado del análisis", 'La cadena es válida')
     else:
         messagebox.showerror("Error encontrado", analizador.error or "Error desconocido.")
 
 
 # Configuración de la ventana principal de Tkinter
 root = tk.Tk()
-root.title("Analizador Sintactico Lyra")
+root.title("Analizador Sintáctico de Ciclos")
 
 entrada_texto = tk.Text(root, height=15, width=60)
 entrada_texto.pack()
