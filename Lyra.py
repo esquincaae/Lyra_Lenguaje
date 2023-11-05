@@ -7,69 +7,108 @@ class AnalizadorSintactico:
         self.entrada = entrada.strip()
         self.indice = 0
         self.error = None
-        self.variables_declaradas = set()  # Conjunto para llevar registro de las variables declaradas
+        self.nombres_declarados = set()
 
-        # Gramática con expresiones regulares para cada tipo de variable
         self.gramatica = {
             'var': r'var',
-            'T': {
-                'ent': r'\d+',
-                'flot': r'\d+\.\d+',
-                'booleano': r'(true|false)',
-                'cadena': r'".*?"',
-                'caracter': r"'.'"
-            },
+            'func': r'func',
+            'T': r'(ent|flot|booleano|cadena|caracter)',
+            'NV': r'[a-z][a-zA-Z]*',
+            'VL': r'(\d+|\d+\.\d+|true|false|".*?"|\'.?\')',
             'PC': r';',
-            'I': r'='
+            'I': r'=',
+            'C': r',',
+            'LA': r'\{',
+            'LC': r'\}',
+            'AV': r'\(',
+            'CV': r'\)',
+            'RE': r'regresa',
+            'OP': r'[\+\-\*/]',
+            'EXP': r'[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;',
+            'VRS': r'([a-z][a-zA-Z]*\s*(,\s*[a-z][a-zA-Z]*)*)?',
+            'NF': r'[a-z][a-zA-Z]*',
+            'ARGS': r'(\s*[a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?',
+            'BODY': r'(\s*[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;)+',
+            'FUNC': r'func\s+[a-zA-Z_]\w*\s*\(\s*([a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?\)\s*\{[^\}]*\}',
         }
-        self.tipo_actual = None
 
+    # Métodos para consumir espacios y hacer match con patrones...
     def consumir_espacios(self):
         while self.indice < len(self.entrada) and self.entrada[self.indice].isspace():
             self.indice += 1
 
-    def match(self, regex):
+    def match(self, pattern):
         self.consumir_espacios()
-        match_obj = re.match(regex, self.entrada[self.indice:])
+        match_obj = re.match(pattern, self.entrada[self.indice:])
         if match_obj:
             self.indice += match_obj.end()
             return match_obj.group(0).strip()
         return None
 
-    def expect(self, token):
-        matched = self.match(self.gramatica[token] if token in self.gramatica else token)
+    def expect(self, pattern):
+        matched = self.match(pattern)
         if not matched:
-            self.error = f"Se esperaba '{token}'"
+            self.error = f"Se esperaba el patrón {pattern}"
             return False
         return True
 
+    # Método para manejar la declaración de una función
+    def SF(self):
+        # Verifica si hay una definición de función y procesa si la hay
+        if self.match(self.gramatica['FUNC']):
+            # Aquí podrías extender la lógica para manejar el contenido de la función en detalle
+            return True
+        return False
+
+    # Método para manejar la declaración de una variable
+    def SV(self):
+        if self.expect('var'):
+            tipo = self.match(self.gramatica['T'])
+            if tipo:
+                var_name = self.match(self.gramatica['NV'])
+                if var_name:
+                    if var_name in self.nombres_declarados:
+                        self.error = f"La variable '{var_name}' ya ha sido declarada."
+                        return False
+                    self.nombres_declarados.add(var_name)
+                    if self.expect('='):
+                        # Verificación de tipo correspondiente al valor asignado
+                        valor = self.match(self.gramatica['VL'])
+                        if valor:
+                            if tipo == 'ent' and not re.match(r'^\d+$', valor):
+                                self.error = f"Tipo de dato incorrecto para ent: {valor}"
+                                return False
+                            elif tipo == 'flot' and not re.match(r'^\d+\.\d+$', valor):
+                                self.error = f"Tipo de dato incorrecto para flot: {valor}"
+                                return False
+                            elif tipo == 'booleano' and valor not in ['true', 'false']:
+                                self.error = f"Tipo de dato incorrecto para booleano: {valor}"
+                                return False
+                            elif tipo == 'cadena' and not re.match(r'^".*"$', valor):
+                                self.error = f"Tipo de dato incorrecto para cadena: {valor}"
+                                return False
+                            elif tipo == 'caracter' and not re.match(r"^'.?'$", valor):
+                                self.error = f"Tipo de dato incorrecto para caracter: {valor}"
+                                return False
+                            return self.expect(';')
+        return False
+
+    # Método para realizar el análisis completo
     def analizar(self):
         while self.indice < len(self.entrada):
-            if not self.expect('var'):
-                return False
-            tipo = self.match(r'(ent|flot|booleano|cadena|caracter)')
-            if tipo in self.gramatica['T']:
-                self.tipo_actual = tipo
-                var_name = self.match(r'[a-zA-Z_][a-zA-Z0-9_]*')
-                if not var_name:
-                    self.error = "Nombre de variable inválido"
+            self.consumir_espacios()
+            if self.entrada[self.indice:].startswith('var '):
+                if not self.SV():
                     return False
-                if var_name in self.variables_declaradas:
-                    self.error = f"La variable '{var_name}' ya ha sido declarada."
-                    return False
-                self.variables_declaradas.add(var_name)
-                if not self.expect('I'):
-                    return False
-                valor = self.match(self.gramatica['T'][self.tipo_actual])
-                if not valor:
-                    self.error = f"Valor inválido para el tipo {self.tipo_actual}"
-                    return False
-                if not self.expect('PC'):
+            elif self.entrada[self.indice:].startswith('func '):
+                if not self.SF():
                     return False
             else:
-                self.error = "Tipo de variable inválido"
+                if self.error:  # Si se encontró un error, detener el análisis
+                    return False
+                self.error = "Se esperaba una declaración de variable o definición de función"
                 return False
-            self.consumir_espacios()  # Prepararse para la siguiente declaración
+            self.consumir_espacios()
         return True
 
 # Función que se llama cuando se presiona el botón de la GUI
@@ -83,15 +122,12 @@ def evaluar_cadena():
 
 # Configuración de la ventana principal de Tkinter
 root = tk.Tk()
-root.title("Analizador de Declaraciones de Variables")
+root.title("Analizador de Gramática")
 
-# Crear una caja de texto para la entrada de la cadena
-entrada_texto = tk.Text(root, height=10, width=50)
+entrada_texto = tk.Text(root, height=15, width=60)
 entrada_texto.pack()
 
-# Crear un botón para evaluar la cadena
 boton_evaluar = tk.Button(root, text="Evaluar cadena", command=evaluar_cadena)
 boton_evaluar.pack()
 
-# Ejecutar el bucle principal de la GUI
 root.mainloop()
