@@ -38,6 +38,13 @@ class AnalizadorSintactico:
             'BODY': r'(\s*[a-zA-Z_]\w*\s*(\+\+|\-\-|\=[a-zA-Z_]\w*(\s*[\+\-\*/]\s*[a-zA-Z_]\w*)?)\s*;)+',
             'FUNC': r'func\s+[a-zA-Z_]\w*\s*\(\s*([a-zA-Z_]\w*\s*(,\s*[a-zA-Z_]\w*\s*)*)?\)\s*\{[^\}]*\}',
         }
+        self.gramatica.update({
+            'IMPRIMIR': r'imprimir',
+            'CONDICION': r'[a-zA-Z_]\w*\s*(==|!=|>=|<=|>|<)\s*\d+',
+            'SI': r'si',
+            'SINO': r'sino',
+            'IMPRIMIR_LLAMADA': r'imprimir\s*\(\s*".*?"\s*\)\s*;'
+        })
 
     # Métodos para consumir espacios y hacer match con patrones...
     def consumir_espacios(self):
@@ -51,6 +58,29 @@ class AnalizadorSintactico:
             self.indice += match_obj.end()
             return match_obj.group(0).strip()
         return None
+    
+    def match_imprimir(self):
+        if not self.expect(self.gramatica['IMPRIMIR']):
+            return False
+        if not self.expect(r'\('):
+            self.error = "Se esperaba '(' después de 'imprimir'"
+            return False
+        # Asegúrate de que la cadena esté bien formada
+        cadena_imprimir = self.match(r'".*?"|\'.*?\'')
+        if not cadena_imprimir:
+            self.error = "Se esperaba una cadena entre comillas para 'imprimir'"
+            return False
+        # Verifica si la cadena está cerrada correctamente
+        if cadena_imprimir.count('"') % 2 != 0 or cadena_imprimir.count("'") % 2 != 0:
+            self.error = "La cadena de 'imprimir' no está cerrada correctamente"
+            return False
+        if not self.expect(r'\)'):
+            self.error = "Se esperaba ')' después de la cadena de 'imprimir'"
+            return False
+        if not self.expect(';'):
+            self.error = "Se esperaba ';' al final de la instrucción de 'imprimir'"
+            return False
+        return True
 
     def expect(self, pattern):
         matched = self.match(pattern)
@@ -112,7 +142,52 @@ class AnalizadorSintactico:
                                 return False
         return False
 
-    # Método para realizar el análisis completo
+    def SSCO(self):
+        if self.match(self.gramatica['SI']):
+            if not self.expect(r'\('):
+                self.error = "Se esperaba '(' después de 'si'"
+                return False
+            condicion = self.match(self.gramatica['CONDICION'])
+            if not condicion:
+                self.error = "Condición del 'si' no válida o no proporcionada."
+                return False
+            if not self.expect(r'\)'):
+                self.error = "Se esperaba ')' después de la condición del 'si'"
+                return False
+            if not self.expect(r'\{'):
+                self.error = "Se esperaba '{' para iniciar el bloque del 'si'"
+                return False
+
+            # Verifica el contenido dentro del bloque 'si'
+            if not self.match_imprimir():
+                return False  # El error ya está configurado en match_imprimir
+
+            if not self.expect(r'\}'):
+                if not self.error:  # Si no se ha configurado un error previo
+                    self.error = "Se esperaba '}' para cerrar el bloque del 'si'"
+                return False
+
+            # Opcionalmente manejar 'sino'
+            if self.match(self.gramatica['SINO']):
+                if not self.expect(r'\{'):
+                    self.error = "Se esperaba '{' para iniciar el bloque del 'sino'"
+                    return False
+
+                # Verifica el contenido dentro del bloque 'sino'
+                if not self.match_imprimir():
+                    return False  # El error ya está configurado en match_imprimir
+
+                if not self.expect(r'\}'):
+                    if not self.error:
+                        self.error = "Se esperaba '}' para cerrar el bloque del 'sino'"
+                    return False
+
+            return True
+        return False
+
+
+
+
     def analizar(self):
         while self.indice < len(self.entrada):
             self.consumir_espacios()
@@ -122,10 +197,13 @@ class AnalizadorSintactico:
             elif self.entrada[self.indice:].startswith('func '):
                 if not self.SF():
                     return False
-            else:
-                if self.error:  # Si se encontró un error, detener el análisis
+            elif self.entrada[self.indice:].startswith(self.gramatica['SI']):
+                if not self.SSCO():
                     return False
-                self.error = "Se esperaba una declaración de variable o definición de función"
+            else:
+                if self.error:
+                    return False
+                self.error = "Se esperaba una declaración de variable, definición de función o un condicional 'si'"
                 return False
             self.consumir_espacios()
         return True
@@ -138,6 +216,7 @@ def evaluar_cadena():
         messagebox.showinfo("Resultado del análisis", 'La cadena es válida.')
     else:
         messagebox.showerror("Error encontrado", analizador.error or "Error desconocido.")
+
 
 # Configuración de la ventana principal de Tkinter
 root = tk.Tk()
