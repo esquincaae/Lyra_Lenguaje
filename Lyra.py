@@ -71,6 +71,17 @@ class AnalizadorSintactico:
                 if nombre_funcion in self.nombres_declarados:
                     self.error = f"La función '{nombre_funcion}' ya ha sido declarada."
                     return False
+                
+                # Verificar si la función se llama 'cuerpo' y manejar las restricciones
+                if nombre_funcion == 'cuerpo':
+                    # Verificar que no haya argumentos y no se use 'regresa'
+                    if not re.search(r'func\s+cuerpo\s*\(\s*\)', func_match):
+                        self.error = "La función 'cuerpo' no debe tener argumentos."
+                        return False
+                    if 'regresa' in func_match:
+                        self.error = "La función 'cuerpo' no debe contener 'regresa'."
+                        return False
+
                 self.nombres_declarados.add(nombre_funcion)
                 # Aquí iría la lógica para analizar el resto de la definición de la función
                 return True
