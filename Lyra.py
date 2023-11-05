@@ -62,9 +62,21 @@ class AnalizadorSintactico:
     # Método para manejar la declaración de una función
     def SF(self):
         # Verifica si hay una definición de función y procesa si la hay
-        if self.match(self.gramatica['FUNC']):
-            # Aquí podrías extender la lógica para manejar el contenido de la función en detalle
-            return True
+        func_match = self.match(self.gramatica['FUNC'])
+        if func_match:
+            # Extraer el nombre de la función utilizando una expresión regular
+            nombre_funcion_match = re.match(r'func\s+([a-zA-Z_]\w*)', func_match)
+            if nombre_funcion_match:
+                nombre_funcion = nombre_funcion_match.group(1)
+                if nombre_funcion in self.nombres_declarados:
+                    self.error = f"La función '{nombre_funcion}' ya ha sido declarada."
+                    return False
+                self.nombres_declarados.add(nombre_funcion)
+                # Aquí iría la lógica para analizar el resto de la definición de la función
+                return True
+            else:
+                self.error = "Nombre de función inválido o no proporcionado."
+                return False
         return False
 
     # Método para manejar la declaración de una variable
@@ -118,7 +130,7 @@ def evaluar_cadena():
 
 # Configuración de la ventana principal de Tkinter
 root = tk.Tk()
-root.title("Analizador de Gramática")
+root.title("Analizador Sintactico Lyra")
 
 entrada_texto = tk.Text(root, height=15, width=60)
 entrada_texto.pack()
