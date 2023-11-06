@@ -20,7 +20,7 @@ class AnalizadorSintactico:
             'LC': r'\}',
             'AV': r'\(',
             'CV': r'\)',
-            'VL': r'(\d+|\d+\.\d+|true|false|".*?"|\'.?\')',  
+            'VL': r'(\d+\.\d+|\d+|true|false|".*?"|\'.?\')',
             'SC': r'Para',
             'AD': r'(\+\+|\-\-)',
             'RE': r'regresa',
@@ -44,7 +44,7 @@ class AnalizadorSintactico:
         })
         self.tipos_de_datos = {
             'ent': r'^\d+$',
-            'flot': r'^\d+\.\d+$',
+            'flot': r'\d+(\.\d+)?',
             'booleano': r'^(true|false)$',
             'cadena': r'^".*"$',
             'caracter': r"^'.'$",
@@ -56,10 +56,11 @@ class AnalizadorSintactico:
             self.indice += 1
 
     def match(self, pattern):
-        self.consumir_espacios()
+        self.consumir_espacios()  # Consumir espacios antes de intentar hacer match
         match_obj = re.match(pattern, self.entrada[self.indice:])
         if match_obj:
             self.indice += match_obj.end()
+            self.consumir_espacios()  # Consumir espacios después de hacer match
             return match_obj.group(0).strip()
         return None
     
@@ -95,15 +96,13 @@ class AnalizadorSintactico:
 
 
     def expect(self, token_or_pattern):
-        # Intentar obtener el patrón del diccionario de gramática usando token_or_pattern como clave
         pattern = self.gramatica.get(token_or_pattern, token_or_pattern)
-        self.consumir_espacios()
-        # Intentar hacer match con el patrón
+        self.consumir_espacios()  # Consumir espacios antes de intentar hacer match
         match_obj = re.match(pattern, self.entrada[self.indice:])
         if match_obj:
             self.indice += match_obj.end()
+            self.consumir_espacios()  # Consumir espacios después de hacer match
             return True
-        # Si el match falla, configurar el mensaje de error
         self.error = f"Se esperaba '{token_or_pattern}'"
         return False
 
@@ -143,10 +142,8 @@ class AnalizadorSintactico:
 
     # Método para manejar la declaración de una función
     def SF(self):
-            # Verifica si hay una definición de función y procesa si la hay
             func_match = self.match(self.gramatica['FUNC'])
             if func_match:
-                # Extraer el nombre de la función utilizando una expresión regular
                 nombre_funcion_match = re.match(r'func\s+([a-zA-Z_]\w*)', func_match)
                 if nombre_funcion_match:
                     nombre_funcion = nombre_funcion_match.group(1)
@@ -156,7 +153,6 @@ class AnalizadorSintactico:
                     
                     # Verificar si la función se llama 'cuerpo' y manejar las restricciones
                     if nombre_funcion == 'cuerpo':
-                        # Verificar que no haya argumentos y no se use 'regresa'
                         if not re.search(r'func\s+cuerpo\s*\(\s*\)', func_match):
                             self.error = "La función 'cuerpo' no debe tener argumentos."
                             return False
@@ -165,7 +161,6 @@ class AnalizadorSintactico:
                             return False
 
                     self.nombres_declarados.add(nombre_funcion)
-                    # Aquí iría la lógica para analizar el resto de la definición de la función
                     return True
                 else:
                     self.error = "Nombre de función inválido o no proporcionado."
@@ -173,26 +168,43 @@ class AnalizadorSintactico:
             return False
 
         # Método para manejar la declaración de una variable
+        # En la clase AnalizadorSintactico, dentro del método SV()
     def SV(self):
-            if self.expect('var'):
-                tipo = self.match(self.gramatica['T'])
-                if tipo:
-                    var_name = self.match(self.gramatica['NV'])
-                    if var_name:
-                        if var_name in self.nombres_declarados:
-                            self.error = f"La variable '{var_name}' ya ha sido declarada."
-                            return False
-                        self.nombres_declarados.add(var_name)
-                        if self.expect('='):
-                            valor = self.match(self.gramatica['VL'])
-                            if valor:
-                                patron = self.tipos_de_datos[tipo]
-                                if re.match(patron, valor):
-                                    return self.expect(';')
+        if self.expect('var'):
+            tipo = self.match(self.gramatica['T'])
+            if tipo:
+                var_name = self.match(self.gramatica['NV'])
+                if var_name:
+                    if var_name in self.nombres_declarados:
+                        self.error = f"La variable '{var_name}' ya ha sido declarada."
+                        return False
+                    self.nombres_declarados.add(var_name)
+                    if self.expect('='):
+                        valor = self.match(self.gramatica['VL'])
+                        if valor:
+                            patron = self.tipos_de_datos[tipo]
+                            if re.match(patron, valor):
+                                self.consumir_espacios()  
+                                if self.expect(';'):
+                                    return True
                                 else:
-                                    self.error = f"Tipo de dato incorrecto para {tipo}: {valor}"
+                                    self.error = "Se esperaba ';' al final de la declaración de la variable."
                                     return False
-            return False
+                            else:
+                                self.error = f"Tipo de dato incorrecto para {tipo}: {valor}"
+                                return False
+                    else:
+                        self.error = "Se esperaba '=' después del nombre de la variable."
+                        return False
+                else:
+                    self.error = "Se esperaba el nombre de la variable después del tipo de dato."
+                    return False
+            else:
+                self.error = "Se esperaba el tipo de dato después de 'var'."
+                return False
+        return False
+
+
 
     def SSCO(self):
             if self.match(self.gramatica['SI']):
@@ -210,24 +222,24 @@ class AnalizadorSintactico:
                     self.error = "Se esperaba '{' para iniciar el bloque del 'si'"
                     return False
 
-                # Verifica el contenido dentro del bloque 'si'
+ 
                 if not self.match_imprimir():
-                    return False  # El error ya está configurado en match_imprimir
+                    return False 
 
                 if not self.expect(r'\}'):
-                    if not self.error:  # Si no se ha configurado un error previo
+                    if not self.error: 
                         self.error = "Se esperaba '}' para cerrar el bloque del 'si'"
                     return False
 
-                # Opcionalmente manejar 'sino'
+               
                 if self.match(self.gramatica['SINO']):
                     if not self.expect(r'\{'):
                         self.error = "Se esperaba '{' para iniciar el bloque del 'sino'"
                         return False
 
-                    # Verifica el contenido dentro del bloque 'sino'
+                 
                     if not self.match_imprimir():
-                        return False  # El error ya está configurado en match_imprimir
+                        return False  
 
                     if not self.expect(r'\}'):
                         if not self.error:

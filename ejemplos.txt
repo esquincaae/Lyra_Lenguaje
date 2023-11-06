@@ -1,7 +1,8 @@
-var ent contador = 0;
+var flot contador = 0.0;
 
 func incrementar(contador) {
-  contador = contador + 1;
+  contenido
+  regresa contador;
 }
 
 func cuerpo() {
