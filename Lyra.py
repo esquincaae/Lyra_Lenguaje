@@ -71,20 +71,14 @@ class AnalizadorSintactico:
             self.error = "Se esperaba '(' después de 'imprimir'"
             return False
 
-        # Obtiene todo hasta el cierre de paréntesis
         argumentos_str = self.entrada[self.indice:].split(')')[0]  
-        # Divide por coma y quita espacios
         argumentos = [arg.strip() for arg in argumentos_str.split(',')]  
 
         for argumento in argumentos:
-            # Si no es una cadena
             if not re.match(r'^".*"$', argumento):  
-                # Si no es una variable declarada
                 if argumento not in self.nombres_declarados:  
                     self.error = f"La variable '{argumento}' no ha sido declarada."
                     return False
-
-        # Avanza el índice para saltar los argumentos y el cierre de paréntesis
         self.indice += len(argumentos_str) + 1  
 
         if not self.expect(';'):
@@ -97,11 +91,11 @@ class AnalizadorSintactico:
 
     def expect(self, token_or_pattern):
         pattern = self.gramatica.get(token_or_pattern, token_or_pattern)
-        self.consumir_espacios()  # Consumir espacios antes de intentar hacer match
+        self.consumir_espacios()  
         match_obj = re.match(pattern, self.entrada[self.indice:])
         if match_obj:
             self.indice += match_obj.end()
-            self.consumir_espacios()  # Consumir espacios después de hacer match
+            self.consumir_espacios()  
             return True
         self.error = f"Se esperaba '{token_or_pattern}'"
         return False
@@ -111,17 +105,14 @@ class AnalizadorSintactico:
     def analizar_ciclo(self):
             if self.match(self.gramatica['SC']):
                 if self.expect('AV'):
-                    # Analizar inicialización de variable dentro del ciclo
+                   
                     if self.expect('var'):
                         tipo = self.match(self.gramatica['T'])
                         if tipo and self.match(self.gramatica['NV']):
                             if self.expect('I') and self.match(self.gramatica['N']) and self.expect('PC'):
-                                # Analizar condición del ciclo
                                 if self.match(self.gramatica['NV']) and self.match(self.gramatica['O']) and self.match(self.gramatica['N']) and self.expect('PC'):
-                                    # Analizar actualización de la variable del ciclo
                                     if self.match(self.gramatica['NV']) and self.match(self.gramatica['AD']):
                                         if self.expect('CV'):
-                                            # Asegurar que el cuerpo del ciclo esté presente
                                             if self.expect('LA') and self.match(self.gramatica['CN']) and self.expect('LC'):
                                                 return True
                                             else:
@@ -150,8 +141,6 @@ class AnalizadorSintactico:
                     if nombre_funcion in self.nombres_declarados:
                         self.error = f"La función '{nombre_funcion}' ya ha sido declarada."
                         return False
-                    
-                    # Verificar si la función se llama 'cuerpo' y manejar las restricciones
                     if nombre_funcion == 'cuerpo':
                         if not re.search(r'func\s+cuerpo\s*\(\s*\)', func_match):
                             self.error = "La función 'cuerpo' no debe tener argumentos."
@@ -168,7 +157,6 @@ class AnalizadorSintactico:
             return False
 
         # Método para manejar la declaración de una variable
-        # En la clase AnalizadorSintactico, dentro del método SV()
     def SV(self):
         if self.expect('var'):
             tipo = self.match(self.gramatica['T'])
@@ -285,8 +273,6 @@ def evaluar_cadena():
     else:
         messagebox.showerror("Error encontrado", analizador.error or "Error desconocido.")
 
-
-# Configuración de la ventana principal de Tkinter
 root = tk.Tk()
 root.title("Lyra: Analizador Sintáctico")
 
